@@ -78,7 +78,11 @@ export const AuthProvider = ({ children }) => {
 
   const registerWithEmail = async (data) => {
     try {
+      setLoading(true)
+      console.log('Sending registration request with data:', { ...data, password: '[REDACTED]' })
       const response = await api.post('/auth/register', data)
+      console.log('Registration response:', response)
+      
       // Backend returns StandardResponse: { success, data: {...}, message }
       const { access_token, refresh_token, user: userData } = response.data.data || response.data
 
@@ -91,9 +95,20 @@ export const AuthProvider = ({ children }) => {
       toast.success('Registration successful! Please complete your profile.')
     } catch (error) {
       console.error('Registration failed:', error)
-      const errorMessage = error.response?.data?.detail || 'Registration failed'
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers
+      })
+      const errorMessage = error.response?.data?.detail 
+        || error.response?.data?.message 
+        || error.message 
+        || 'Registration failed. Please try again.'
       toast.error(errorMessage)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 

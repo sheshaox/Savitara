@@ -1,10 +1,12 @@
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_VERSION = '/api/v1'
+const FULL_API_URL = `${API_BASE_URL}${API_VERSION}`
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: FULL_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,7 +43,7 @@ api.interceptors.response.use(
         }
 
         const response = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
+          `${FULL_API_URL}/auth/refresh`,
           { refresh_token: refreshToken }
         )
 

@@ -197,6 +197,11 @@ export default function Login() {
                     </InputAdornment>
                   ),
                 }}
+                inputProps={{
+                  minLength: mode === 'register' ? 8 : 1,
+                  maxLength: 72
+                }}
+                helperText={mode === 'register' ? 'Password must be 8-72 characters' : ''}
               />
               
               <Button

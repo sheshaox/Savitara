@@ -50,7 +50,6 @@ class Settings(BaseSettings):
              raise ValueError("Wildcard CORS not allowed in production")
         return origins
 
-
     @field_validator("DEBUG", mode="before")
     @classmethod
     def validate_debug(cls, v: Union[str, bool], info: ValidationInfo) -> bool:

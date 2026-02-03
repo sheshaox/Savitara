@@ -8,6 +8,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from typing import Dict, Any
+from pydantic import ValidationError
 import logging
 
 from app.schemas.requests import (
@@ -119,6 +120,7 @@ async def google_login(
             # New user - create account with PENDING status until onboarding
             user = User(
                 email=google_info['email'],
+                name=google_info.get('name'),
                 google_id=google_info['google_id'],
                 role=auth_request.role,
                 status=UserStatus.PENDING,  # Always PENDING for new users until onboarding
@@ -169,6 +171,7 @@ async def google_login(
                 "user": {
                     "id": str(user.id),
                     "email": user.email,
+                    "name": user.name or google_user_info.get('name'),
                     "role": user.role.value,
                     "status": user.status.value,
                     "credits": user.credits,
@@ -205,9 +208,12 @@ async def register(
     Register new user with email/password
     """
     try:
+        logger.info(f"Registration attempt for email: {request.email}, role: {request.role}")
+        
         # Check if user exists
         existing_user = await db.users.find_one({"email": request.email})
         if existing_user:
+            logger.warning(f"Registration failed: Email {request.email} already exists")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
@@ -216,14 +222,18 @@ async def register(
         # Create new user - status is PENDING until onboarding is complete
         user = User(
             email=request.email,
+            name=request.name,
             password_hash=security_manager.get_password_hash(request.password),
             role=request.role,
             status=UserStatus.PENDING,  # Always PENDING for new users until onboarding
             credits=100  # Welcome bonus
         )
         
+        logger.info(f"Creating new user: {request.email}")
+        
         result = await db.users.insert_one(user.model_dump(by_alias=True, exclude_none=True))
         user_id = str(result.inserted_id)
+        logger.info(f"User created successfully with ID: {user_id}")
         
         # Generate tokens
         access_token = security_manager.create_access_token(
@@ -236,6 +246,8 @@ async def register(
         )
         
         # New user always needs onboarding
+        logger.info(f"Registration complete for {request.email}")
+        
         return StandardResponse(
             success=True,
             message="Registration successful",
@@ -247,6 +259,7 @@ async def register(
                 "user": {
                     "id": user_id,
                     "email": user.email,
+                    "name": user.name,
                     "role": user.role.value,
                     "status": user.status.value,
                     "credits": user.credits,
@@ -258,6 +271,12 @@ async def register(
         )
     except HTTPException:
         raise
+    except ValidationError as e:
+        logger.error(f"Registration validation error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Validation error: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Registration error: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -337,6 +356,7 @@ async def login(
                 "user": {
                     "id": str(user.id),
                     "email": user.email,
+                    "name": user.name,
                     "role": user.role.value,
                     "status": user.status.value,
                     "credits": user.credits,
@@ -479,6 +499,7 @@ async def get_current_user_info(
         data={
             "id": str(user.id),
             "email": user.email,
+            "name": user.name,
             "role": user.role.value,
             "status": user.status.value,
             "credits": user.credits,

@@ -61,8 +61,8 @@ python-json-logger==2.0.7
 redis[hiredis]==5.0.1
 
 # Data Analysis & ML (for recommendations)
-numpy>=1.24.0,<1.25.0
-scipy>=1.10.0,<1.12.0
+numpy>=1.26.0
+scipy>=1.11.0
 
 # Search & Indexing
 elasticsearch==8.11.1

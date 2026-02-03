@@ -39,9 +39,22 @@ class SecurityManager:
     def get_password_hash(password: str) -> str:
         """Generate password hash - truncate to 72 bytes for bcrypt"""
         # Bcrypt has a 72 byte limit, truncate if needed
-        password_bytes = password.encode('utf-8')[:72]
-        password = password_bytes.decode('utf-8', errors='ignore')
-        return pwd_context.hash(password)
+        # Convert to bytes first to handle UTF-8 properly
+        password_bytes = password.encode('utf-8')
+        
+        # If password is longer than 72 bytes, truncate
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+            # Decode back to string, ignoring any incomplete UTF-8 characters at the end
+            password = password_bytes.decode('utf-8', errors='ignore')
+        
+        try:
+            return pwd_context.hash(password)
+        except ValueError as e:
+            if 'password cannot be longer than 72 bytes' in str(e):
+                # If still fails, use first 72 characters instead of bytes
+                return pwd_context.hash(password[:72])
+            raise
     
     @staticmethod
     def create_access_token(

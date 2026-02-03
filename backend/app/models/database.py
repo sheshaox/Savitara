@@ -90,6 +90,7 @@ class User(BaseModel):
     """Base user model"""
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     email: EmailStr
+    name: Optional[str] = None  # User's full name
     google_id: Optional[str] = None
     password_hash: Optional[str] = None
     role: UserRole

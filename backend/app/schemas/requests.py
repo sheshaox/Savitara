@@ -18,13 +18,13 @@ from app.core.constants import PHONE_REGEX
 class LoginRequest(BaseModel):
     """Email/Password login request"""
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1, max_length=72, description="Password")
 
 class RegisterRequest(BaseModel):
     """User registration request"""
     email: EmailStr
-    password: str
-    name: str
+    password: str = Field(..., min_length=8, max_length=72, description="Password must be 8-72 characters")
+    name: str = Field(..., min_length=1, max_length=100, description="Full name")
     role: UserRole
 
 class GoogleAuthRequest(BaseModel):
