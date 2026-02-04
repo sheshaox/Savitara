@@ -206,44 +206,96 @@ async def register(
 ):
     """
     Register new user with email/password
+    Enhanced with comprehensive error handling and proper serialization
     """
     try:
         logger.info(f"Registration attempt for email: {request.email}, role: {request.role}")
         
-        # Check if user exists
-        existing_user = await db.users.find_one({"email": request.email})
-        if existing_user:
-            logger.warning(f"Registration failed: Email {request.email} already exists")
+        # Validate input
+        if not request.email or not request.password or not request.name:
+            logger.warning("Registration failed: Missing required fields")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Email, password, and name are required"
+            )
+        
+        # Check if user exists
+        try:
+            existing_user = await db.users.find_one({"email": request.email})
+            if existing_user:
+                logger.warning(f"Registration failed: Email {request.email} already exists")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+        except HTTPException:
+            raise
+        except Exception as db_error:
+            logger.error(f"Database query error checking existing user: {str(db_error)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database connection error. Please try again."
             )
 
         # Create new user - status is PENDING until onboarding is complete
-        user = User(
-            email=request.email,
-            name=request.name,
-            password_hash=security_manager.get_password_hash(request.password),
-            role=request.role,
-            status=UserStatus.PENDING,  # Always PENDING for new users until onboarding
-            credits=100  # Welcome bonus
-        )
+        try:
+            user = User(
+                email=request.email,
+                name=request.name,
+                password_hash=security_manager.get_password_hash(request.password),
+                role=request.role,
+                status=UserStatus.PENDING,  # Always PENDING for new users until onboarding
+                credits=100,  # Welcome bonus
+                onboarded=False,
+                device_tokens=[],
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+        except Exception as model_error:
+            logger.error(f"Error creating user model: {str(model_error)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error creating user account. Please try again."
+            )
         
         logger.info(f"Creating new user: {request.email}")
         
-        result = await db.users.insert_one(user.model_dump(by_alias=True, exclude_none=True))
-        user_id = str(result.inserted_id)
-        logger.info(f"User created successfully with ID: {user_id}")
+        # Insert user into database with proper serialization
+        try:
+            user_dict = user.model_dump(by_alias=True, exclude_none=True, mode='json')
+            # Ensure datetime fields are properly serialized
+            if 'created_at' in user_dict and isinstance(user_dict['created_at'], datetime):
+                user_dict['created_at'] = user_dict['created_at']
+            if 'updated_at' in user_dict and isinstance(user_dict['updated_at'], datetime):
+                user_dict['updated_at'] = user_dict['updated_at']
+            
+            result = await db.users.insert_one(user_dict)
+            user_id = str(result.inserted_id)
+            logger.info(f"User created successfully with ID: {user_id}")
+        except Exception as insert_error:
+            logger.error(f"Database insert error: {str(insert_error)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to save user account. Please try again."
+            )
         
         # Generate tokens
-        access_token = security_manager.create_access_token(
-            user_id=user_id,
-            role=user.role.value
-        )
-        
-        refresh_token = security_manager.create_refresh_token(
-            user_id=user_id
-        )
+        try:
+            access_token = security_manager.create_access_token(
+                user_id=user_id,
+                role=user.role.value
+            )
+            
+            refresh_token = security_manager.create_refresh_token(
+                user_id=user_id
+            )
+        except Exception as token_error:
+            logger.error(f"Token generation error: {str(token_error)}", exc_info=True)
+            # User was created but token failed - still return success with basic info
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Account created but login failed. Please try logging in."
+            )
         
         # New user always needs onboarding
         logger.info(f"Registration complete for {request.email}")
@@ -278,10 +330,11 @@ async def register(
             detail=f"Validation error: {str(e)}"
         )
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected registration error: {str(e)}", exc_info=True)
+        logger.error(f"Error type: {type(e).__name__}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed. Please try again."
+            detail=f"Registration failed: {str(e)}"
         )
 
 

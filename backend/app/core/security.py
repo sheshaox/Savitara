@@ -6,19 +6,12 @@ SonarQube: S6437 - No hardcoded credentials
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import secrets
 
 from app.core.config import settings
-
-# Password hashing context - SonarQube: Use bcrypt with sufficient rounds
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12  # Secure rounds (not too low)
-)
 
 # HTTP Bearer for JWT tokens
 security = HTTPBearer(auto_error=False)
@@ -29,32 +22,24 @@ class SecurityManager:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Verify password against hash - truncate to 72 bytes for bcrypt"""
-        # Bcrypt has a 72 byte limit, truncate if needed
-        password_bytes = plain_password.encode('utf-8')[:72]
-        plain_password = password_bytes.decode('utf-8', errors='ignore')
-        return pwd_context.verify(plain_password, hashed_password)
+        """Verify password against hash"""
+        try:
+            # Bcrypt works with bytes
+            password_bytes = plain_password.encode('utf-8')[:72]
+            hash_bytes = hashed_password.encode('utf-8')
+            return bcrypt.checkpw(password_bytes, hash_bytes)
+        except Exception:
+            return False
 
     @staticmethod
     def get_password_hash(password: str) -> str:
-        """Generate password hash - truncate to 72 bytes for bcrypt"""
-        # Bcrypt has a 72 byte limit, truncate if needed
-        # Convert to bytes first to handle UTF-8 properly
-        password_bytes = password.encode('utf-8')
-        
-        # If password is longer than 72 bytes, truncate
-        if len(password_bytes) > 72:
-            password_bytes = password_bytes[:72]
-            # Decode back to string, ignoring any incomplete UTF-8 characters at the end
-            password = password_bytes.decode('utf-8', errors='ignore')
-        
-        try:
-            return pwd_context.hash(password)
-        except ValueError as e:
-            if 'password cannot be longer than 72 bytes' in str(e):
-                # If still fails, use first 72 characters instead of bytes
-                return pwd_context.hash(password[:72])
-            raise
+        """Generate password hash using bcrypt"""
+        # Bcrypt has a 72 byte limit
+        password_bytes = password.encode('utf-8')[:72]
+        # Generate salt and hash
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        return hashed.decode('utf-8')
     
     @staticmethod
     def create_access_token(
