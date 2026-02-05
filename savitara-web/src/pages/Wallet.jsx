@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../../context/AuthContext'
-import api from '../../services/api'
-import MobileNavigation from '../../components/navigation/MobileNavigation'
+import { useAuth } from '../context/AuthContext.jsx'
+import api from '../services/api.js'
+import MobileNavigation from '../components/navigation/MobileNavigation'
 import './Wallet.css'
 
 const Wallet = () => {

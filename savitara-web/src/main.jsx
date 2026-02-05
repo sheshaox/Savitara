@@ -11,7 +11,7 @@ import '@fontsource/poppins/600.css'
 import '@fontsource/poppins/700.css'
 import './styles/global.css'
 import App from './App'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider } from './context/AuthContext.jsx'
 import { ThemeContextProvider } from './context/ThemeContext'
 import ErrorBoundary from './components/ErrorBoundary'
 

@@ -12,7 +12,7 @@ import {
 import Layout from '../../components/Layout';
 import SearchFilters from '../../components/SearchFilters';
 import AcharyaCard from '../../components/cards/AcharyaCard';
-import api from '../../services/api';
+import api from '../../services/api.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function SearchAcharyas() {

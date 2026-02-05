@@ -2,7 +2,7 @@ import { AppBar, Toolbar, Typography, Button, IconButton, Box, Avatar, Menu, Men
 import { Menu as MenuIcon, AccountCircle, Logout, Dashboard, Person, LightMode, DarkMode, Search as SearchIcon, Event as EventIcon, Wallet as WalletIcon, Chat as ChatIcon } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext'
 // Make getInitials, generateAvatarColor optional or mock if missing, assuming they exist
 import { getInitials, generateAvatarColor } from '../utils/helpers'

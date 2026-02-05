@@ -1,7 +1,7 @@
 import { Container, Typography, Grid, Paper, Box } from '@mui/material'
 import Layout from '../../components/Layout'
 import PanchangaWidget from '../../components/PanchangaWidget'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/AuthContext.jsx'
 
 export default function GrihastaDashboard() {
   const { user } = useAuth()

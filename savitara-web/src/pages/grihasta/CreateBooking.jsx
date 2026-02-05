@@ -19,7 +19,7 @@ import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-picker
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
 import Layout from '../../components/Layout';
-import api from '../../services/api';
+import api from '../../services/api.js';
 import { FaCheckCircle } from 'react-icons/fa';
 import PricingDisplay from '../../components/PricingDisplay';
 

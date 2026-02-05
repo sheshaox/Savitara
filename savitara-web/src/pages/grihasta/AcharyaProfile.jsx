@@ -25,7 +25,7 @@ import {
   FaCheckCircle 
 } from 'react-icons/fa'
 import Layout from '../../components/Layout'
-import api from '../../services/api'
+import api from '../../services/api.js'
 import ServiceCard from '../../components/cards/ServiceCard'
 // We might not have ReviewCard, so we will inline a simple one if needed or create one.
 

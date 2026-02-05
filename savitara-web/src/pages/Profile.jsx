@@ -35,10 +35,10 @@ import {
   Favorite,
   Warning
 } from '@mui/icons-material'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import api from '../services/api'
+import api from '../services/api.js'
 import { toast } from 'react-toastify'
 import GamificationDashboard from '../components/GamificationDashboard'
 

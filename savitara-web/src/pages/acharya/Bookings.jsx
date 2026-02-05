@@ -35,7 +35,7 @@ import {
   Schedule
 } from '@mui/icons-material'
 import Layout from '../../components/Layout'
-import api from '../../services/api'
+import api from '../../services/api.js'
 import { toast } from 'react-toastify'
 
 export default function AcharyaBookings() {

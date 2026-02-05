@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import api from '../../services/api'
-import { useAuth } from '../../context/AuthContext'
-import MobileNavigation from '../../components/navigation/MobileNavigation'
+import api from '../services/api.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import MobileNavigation from '../components/navigation/MobileNavigation'
 import './ServiceDetail.css'
 
 const ServiceDetail = () => {

@@ -17,7 +17,7 @@ import {
   Star as StarIcon,
   Brightness5 as SunIcon,
 } from '@mui/icons-material';
-import api from '../services/api';
+import api from '../services/api.js';
 
 export default function PanchangaWidget() {
   const [panchanga, setPanchanga] = useState(null);

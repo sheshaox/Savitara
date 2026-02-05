@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Container, Typography, Box, Button, TextField, Card, Grid, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel } from '@mui/material'
 import { Add, Delete, Edit, Event, AccessTime, Refresh } from '@mui/icons-material'
-import { useAuth } from '../context/AuthContext'
-import api from '../services/api'
+import { useAuth } from '../context/AuthContext.jsx'
+import api from '../services/api.js'
 import { toast } from 'react-toastify'
 import './Calendar.css'
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../../services/api'
-import MobileNavigation from '../../components/navigation/MobileNavigation'
+import api from '../services/api.js'
+import MobileNavigation from '../components/navigation/MobileNavigation'
 import './Services.css'
 
 const Services = () => {

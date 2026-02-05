@@ -11,7 +11,7 @@ import {
   FaBell, FaSignOutAlt, FaCog, FaHeart, FaSun, FaMoon
 } from 'react-icons/fa';
 import SavitaraBrand from '../branding/SavitaraBrand';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext';
 
 const Navbar = () => {

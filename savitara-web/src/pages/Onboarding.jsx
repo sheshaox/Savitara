@@ -4,8 +4,8 @@ import { Box, Container, Typography, TextField, Button, Radio, RadioGroup, FormC
 import AddIcon from '@mui/icons-material/Add'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import CascadingLocationSelect from '../components/CascadingLocationSelect'
-import { useAuth } from '../context/AuthContext'
-import api from '../services/api'
+import { useAuth } from '../context/AuthContext.jsx'
+import api from '../services/api.js'
 import { toast } from 'react-toastify'
 
 export default function Onboarding() {

@@ -1,7 +1,7 @@
 import { createContext, useState, useContext, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useNavigate } from 'react-router-dom'
-import api from '../services/api'
+import api from '../services/api.js'
 import { signInWithGoogle as firebaseGoogleSignIn, checkRedirectResult, firebaseSignOut } from '../services/firebase'
 import { toast } from 'react-toastify'
 

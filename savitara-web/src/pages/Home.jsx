@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { Star, VerifiedUser, Schedule, Payments, FormatQuote, ArrowForward } from '@mui/icons-material'
 import Layout from '../components/Layout'
 import HeroCarousel from '../components/carousel/HeroCarousel'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext'
-import api from '../services/api'
+import api from '../services/api.js'
 import { motion } from 'framer-motion' // Use simple animation wrapper if available, or just CSS
 
 // Default testimonials (fallback if API fails)

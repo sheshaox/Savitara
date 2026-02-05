@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import Layout from '../../components/Layout';
-import api from '../../services/api';
+import api from '../../services/api.js';
 import { FaCalendarAlt, FaClock, FaUser, FaRupeeSign, FaVideo } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
