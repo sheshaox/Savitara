@@ -53,6 +53,7 @@ function App() {
   const isOnboarded = user?.onboarded || user?.onboarding_completed
 
   return (
+    <>
       <Routes>
         {/* Public routes */}
       <Route path="/" element={<Home />} />
@@ -127,6 +128,5 @@ function App() {
     </>
   )
 }
-export default App
 
 export default App

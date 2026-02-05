@@ -25,7 +25,8 @@ from app.services.cache_service import cache
 from app.core.security import (
     get_current_user,
     get_current_grihasta,
-    get_current_acharya
+    get_current_acharya,
+    get_current_user_pending
 )
 from app.core.exceptions import (
     ResourceNotFoundError,
@@ -54,7 +55,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 )
 async def grihasta_onboarding(
     onboarding_data: GrihastaOnboardingRequest,
-    current_user: Dict[str, Any] = Depends(get_current_grihasta),
+    current_user: Dict[str, Any] = Depends(get_current_user_pending),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """
@@ -75,6 +76,12 @@ async def grihasta_onboarding(
                 message="Onboarding already completed",
                 field="user_id"
             )
+        
+        # Update user's role to grihasta if it's not already set correctly
+        await db.users.update_one(
+            {"_id": user_oid},
+            {"$set": {"role": "grihasta"}}
+        )
         
         # Handle referral code
         referral_credits = 0
@@ -177,7 +184,7 @@ async def grihasta_onboarding(
 )
 async def acharya_onboarding(
     onboarding_data: AcharyaOnboardingRequest,
-    current_user: Dict[str, Any] = Depends(get_current_acharya),
+    current_user: Dict[str, Any] = Depends(get_current_user_pending),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """
@@ -196,6 +203,12 @@ async def acharya_onboarding(
                 message="Onboarding already completed",
                 field="user_id"
             )
+        
+        # Update user's role to acharya if it's not already set correctly
+        await db.users.update_one(
+            {"_id": user_oid},
+            {"$set": {"role": "acharya"}}
+        )
         
         # Create Acharya profile
         profile = AcharyaProfile(

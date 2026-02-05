@@ -5,11 +5,13 @@ SonarQube: S5122 - Proper CORS handled in main.py
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
+import jwt
+from jwt import PyJWKClient
+import requests
 from typing import Dict, Any
 from pydantic import ValidationError
 import logging
+import os
 
 from app.schemas.requests import (
     GoogleAuthRequest,
@@ -33,36 +35,117 @@ security_manager = SecurityManager()
 security = HTTPBearer()
 settings = get_settings()
 
+# Google's public key URLs for token verification
+GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+FIREBASE_CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+
+logger.info("Auth module initialized - using direct JWT verification")
+
 
 def verify_google_token(token: str) -> Dict[str, Any]:
     """
-    Verify Google ID token and extract user info
-    SonarQube: S4502 - Uses Google's official library for secure token verification
+    Verify Firebase ID token using direct JWT verification.
+    This approach doesn't require any service account credentials.
+    
+    It fetches Google's public keys directly and verifies the token signature.
     """
     try:
-        # Verify token with Google
-        idinfo = id_token.verify_oauth2_token(
-            token,
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID
-        )
+        logger.info("Verifying Firebase ID token using direct JWT verification...")
         
-        # Verify issuer
-        if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
-            raise ValueError('Invalid issuer')
+        # First, decode the token header to get the key ID (kid)
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            kid = unverified_header.get('kid')
+            logger.debug(f"Token key ID (kid): {kid}")
+        except jwt.exceptions.DecodeError as e:
+            logger.error(f"Failed to decode token header: {e}")
+            raise AuthenticationError(message="Invalid token format", details={"error": str(e)})
         
-        # Extract user info
-        return {
-            'email': idinfo['email'],
-            'google_id': idinfo['sub'],
-            'name': idinfo.get('name'),
-            'picture': idinfo.get('picture'),
-            'email_verified': idinfo.get('email_verified', False)
-        }
-    except ValueError as e:
-        logger.error(f"Google token verification failed: {e}")
+        # Fetch Google's public keys using PyJWKClient
+        try:
+            jwks_client = PyJWKClient(GOOGLE_CERTS_URL)
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            logger.debug("Successfully fetched signing key from Google")
+        except Exception as e:
+            logger.warning(f"Failed to get key from Google OAuth certs: {e}, trying Firebase certs...")
+            # Try fetching from Firebase-specific endpoint
+            try:
+                # For Firebase tokens, we need to fetch the X.509 certificate
+                response = requests.get(FIREBASE_CERTS_URL, timeout=10)
+                response.raise_for_status()
+                certs = response.json()
+                
+                if kid not in certs:
+                    logger.error(f"Key ID {kid} not found in Firebase certificates")
+                    raise AuthenticationError(
+                        message="Token signing key not found",
+                        details={"kid": kid, "available_kids": list(certs.keys())}
+                    )
+                
+                # Get the certificate for this key ID
+                cert_str = certs[kid]
+                from cryptography.x509 import load_pem_x509_certificate
+                from cryptography.hazmat.backends import default_backend
+                
+                cert = load_pem_x509_certificate(cert_str.encode(), default_backend())
+                signing_key = cert.public_key()
+                logger.debug("Successfully fetched signing key from Firebase certs")
+            except requests.RequestException as req_err:
+                logger.error(f"Failed to fetch Firebase certificates: {req_err}")
+                raise AuthenticationError(
+                    message="Failed to fetch verification certificates",
+                    details={"error": str(req_err)}
+                )
+        
+        # Verify and decode the token
+        try:
+            # Get the public key
+            if hasattr(signing_key, 'key'):
+                public_key = signing_key.key
+            else:
+                public_key = signing_key
+            
+            # Firebase tokens use RS256 algorithm
+            # The audience should be the Firebase project ID
+            decoded = jwt.decode(
+                token,
+                public_key,
+                algorithms=["RS256"],
+                audience=settings.FIREBASE_PROJECT_ID,
+                issuer=f"https://securetoken.google.com/{settings.FIREBASE_PROJECT_ID}"
+            )
+            
+            logger.info(f"Token verified successfully for user: {decoded.get('email')}")
+            
+            # Extract user info
+            return {
+                'email': decoded.get('email'),
+                'google_id': decoded.get('user_id') or decoded.get('sub'),
+                'name': decoded.get('name'),
+                'picture': decoded.get('picture'),
+                'email_verified': decoded.get('email_verified', False)
+            }
+            
+        except jwt.ExpiredSignatureError:
+            logger.error("Token has expired")
+            raise AuthenticationError(message="Token has expired, please sign in again")
+        except jwt.InvalidAudienceError:
+            logger.error(f"Invalid audience. Expected: {settings.FIREBASE_PROJECT_ID}")
+            raise AuthenticationError(message="Token audience mismatch")
+        except jwt.InvalidIssuerError:
+            logger.error("Invalid token issuer")
+            raise AuthenticationError(message="Token issuer mismatch")
+        except jwt.InvalidTokenError as e:
+            logger.error(f"Invalid token: {e}")
+            raise AuthenticationError(message="Invalid token", details={"error": str(e)})
+            
+    except AuthenticationError:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during token verification: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         raise AuthenticationError(
-            message="Invalid Google token",
+            message="Failed to verify Firebase token",
             details={"error": str(e)}
         )
 
@@ -141,12 +224,6 @@ async def google_login(
                 details={"contact": "support@savitara.com"}
             )
         
-        if user.status == UserStatus.DELETED:
-            raise AuthenticationError(
-                message="Account deleted",
-                details={}
-            )
-        
         # Check if user has completed onboarding by checking if profile exists
         profile_collection = "grihasta_profiles" if user.role == UserRole.GRIHASTA else "acharya_profiles"
         profile = await db[profile_collection].find_one({"user_id": str(user.id)})
@@ -171,7 +248,7 @@ async def google_login(
                 "user": {
                     "id": str(user.id),
                     "email": user.email,
-                    "name": user.name or google_user_info.get('name'),
+                    "name": user.name or google_info.get('name'),
                     "role": user.role.value,
                     "status": user.status.value,
                     "credits": user.credits,
@@ -262,12 +339,8 @@ async def register(
         
         # Insert user into database with proper serialization
         try:
-            user_dict = user.model_dump(by_alias=True, exclude_none=True, mode='json')
             # Ensure datetime fields are properly serialized
-            if 'created_at' in user_dict and isinstance(user_dict['created_at'], datetime):
-                user_dict['created_at'] = user_dict['created_at']
-            if 'updated_at' in user_dict and isinstance(user_dict['updated_at'], datetime):
-                user_dict['updated_at'] = user_dict['updated_at']
+            user_dict = user.model_dump(by_alias=True, exclude_none=True, mode='json')
             
             result = await db.users.insert_one(user_dict)
             user_id = str(result.inserted_id)

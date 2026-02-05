@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Container, Box, Card, CardContent, Typography, Button, TextField, Divider, ToggleButton, ToggleButtonGroup, CircularProgress, Backdrop, InputAdornment, IconButton } from '@mui/material'
 import GoogleIcon from '@mui/icons-material/Google'
 import { Visibility, VisibilityOff } from '@mui/icons-material'
@@ -6,9 +6,10 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { useTheme } from '../context/ThemeContext'
+import RoleSelectionDialog from '../components/RoleSelectionDialog'
 
 export default function Login() {
-  const { loginWithGoogle, loginWithEmail, registerWithEmail } = useAuth()
+  const { loginWithGoogle, completeGoogleLogin, cancelGoogleLogin, pendingGoogleAuth, loginWithEmail, registerWithEmail } = useAuth()
   const { colors, isDark } = useTheme()
   const navigate = useNavigate()
   const [mode, setMode] = useState('login')
@@ -20,24 +21,65 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [backdropMessage, setBackdropMessage] = useState('')
+  const [showRoleDialog, setShowRoleDialog] = useState(false)
+  const [googleUserEmail, setGoogleUserEmail] = useState('')
+  
+  // Check for pending Google auth on mount (for mobile redirect flow)
+  useEffect(() => {
+    if (pendingGoogleAuth) {
+      console.log('Pending Google auth detected, showing role dialog')
+      setGoogleUserEmail(pendingGoogleAuth.userEmail || '')
+      setShowRoleDialog(true)
+    }
+  }, [pendingGoogleAuth])
 
   // Handle Firebase Google Sign-In
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true)
     setBackdropMessage('Connecting to Google...')
     try {
-      await loginWithGoogle() // No credential needed - Firebase handles popup
-      setBackdropMessage('Login successful! Redirecting...')
-      // Small delay to let user see success message before redirect
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const result = await loginWithGoogle() // No credential needed - Firebase handles popup
+      
+      // Check if we need role selection
+      if (result?.needsRoleSelection) {
+        setGoogleUserEmail(result.userEmail || '')
+        setGoogleLoading(false) // Close loading before showing dialog
+        setShowRoleDialog(true)
+        setBackdropMessage('')
+      }
+      // If no role selection needed, keep loading state - navigation will unmount this component
     } catch (error) {
       console.error('Google login failed:', error)
       // Show the specific error message from Firebase
       toast.error(error.message || 'Google login failed. Please try again.')
-    } finally {
       setGoogleLoading(false)
       setBackdropMessage('')
     }
+  }
+  
+  // Handle role selection from dialog
+  const handleRoleSelect = async (selectedRole) => {
+    setShowRoleDialog(false)
+    setGoogleLoading(true)
+    setBackdropMessage('Completing sign-in...')
+    
+    try {
+      await completeGoogleLogin(selectedRole)
+      setBackdropMessage('Success! Redirecting to your dashboard...')
+      // Keep backdrop open - navigation will unmount this component
+    } catch (error) {
+      console.error('Failed to complete Google login:', error)
+      toast.error(error.message || 'Failed to complete login. Please try again.')
+      setGoogleLoading(false)
+      setBackdropMessage('')
+    }
+  }
+  
+  // Handle role dialog close
+  const handleRoleDialogClose = () => {
+    setShowRoleDialog(false)
+    cancelGoogleLogin()
+    toast.info('Google sign-in cancelled')
   }
 
   const handleSubmit = async (e) => {
@@ -237,6 +279,14 @@ export default function Login() {
           </CardContent>
         </Card>
       </Container>
+      
+      {/* Role Selection Dialog */}
+      <RoleSelectionDialog
+        open={showRoleDialog}
+        onClose={handleRoleDialogClose}
+        onSelectRole={handleRoleSelect}
+        userEmail={googleUserEmail}
+      />
     </Box>
   )
 }

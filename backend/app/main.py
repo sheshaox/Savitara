@@ -65,8 +65,10 @@ async def lifespan(app: FastAPI):
         try:
             await DatabaseManager.connect_to_database()
         except Exception as e:
-            logger.error(f"MongoDB connection failed: {e}")
-            logger.warning("Application starting without MongoDB - some features may not work")
+            logger.error(f"🔥 Critical: MongoDB connection completely failed: {e}")
+            logger.warning("⚠️  Application starting in degraded mode - database features unavailable")
+            logger.info("💡 The app will continue to start, but database operations will fail")
+            logger.info("🔧 Fix the database connection and restart, or use /health to monitor status")
         
         # Connect rate limiter Redis (non-blocking)
         try:
@@ -179,7 +181,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["X-Total-Count", "X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
 )
@@ -419,6 +421,41 @@ async def api_info():
         "version": settings.API_VERSION,
         "docs": "/api/docs" if settings.DEBUG else None
     }
+
+
+# Database debug endpoint (development only)
+@app.get("/debug/db", tags=["Debug"])
+async def database_debug():
+    """Database debug endpoint (development only)"""
+    if not settings.DEBUG:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    try:
+        health = await DatabaseManager.health_check(force_check=True)
+        
+        return {
+            "connection_info": {
+                "url_masked": DatabaseManager._mask_connection_string(settings.MONGODB_URL),
+                "database_name": settings.MONGODB_DB_NAME,
+                "pool_size": f"{settings.MONGODB_MIN_POOL_SIZE}-{settings.MONGODB_MAX_POOL_SIZE}",
+                "connection_attempts": DatabaseManager._connection_attempts,
+                "last_connection_time": DatabaseManager._last_connection_time
+            },
+            "health": health,
+            "client_info": {
+                "connected": DatabaseManager.client is not None,
+                "db_available": DatabaseManager.db is not None,
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "connection_info": {
+                "url_masked": DatabaseManager._mask_connection_string(settings.MONGODB_URL),
+                "database_name": settings.MONGODB_DB_NAME,
+            }
+        }
 
 
 # Include API routers

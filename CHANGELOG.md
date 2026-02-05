@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-02-04
+
+### Fixed - Web Application
+- 🔧 **Google Sign-In Navigation Issue**: Fixed redirect loop where users were sent back to login page after role selection
+  - Removed artificial `setTimeout` delays that interfered with React Router navigation
+  - Fixed loading backdrop state management to persist until navigation completes
+  - Added `navigate(destination, { replace: true })` to prevent back button issues
+  - Improved mobile OAuth redirect flow to handle role selection properly
+  
+- 🎨 **Role Selection Flow**: Implemented proper two-step Google authentication
+  - Added `RoleSelectionDialog` component for grihasta/acharya selection
+  - Split authentication into: Firebase auth → Role selection → Backend registration
+  - Added `completeGoogleLogin(role)` and `cancelGoogleLogin()` functions
+  - Fixed mobile redirect to detect pending authentication and show role dialog
+  
+- 📝 **User Experience Improvements**:
+  - Better loading messages: "Connecting to Google...", "Completing sign-in...", "Success! Redirecting..."
+  - Smooth navigation without visual glitches
+  - Proper error handling with user-friendly toast messages
+  - Console logging for easier debugging
+
+### Added - Documentation
+- 📚 **GOOGLE_SIGNIN_TEST.md**: Comprehensive testing guide with 5+ test scenarios
+- 📚 **GOOGLE_SIGNIN_IMPLEMENTATION.md**: Technical deep-dive with code examples and flow diagrams
+- 📚 **GOOGLE_SIGNIN_FIX.md**: Visual before/after comparison of the fix
+- 📚 **GOOGLE_SIGNIN_SUMMARY.md**: Complete summary with troubleshooting guide
+- 📚 **GOOGLE_SIGNIN_QUICKREF.md**: Quick reference card for developers
+- 📚 Updated **QUICK_START.md** with Google Sign-In authentication options
+
+### Changed - Code Architecture
+- ♻️ Refactored `AuthContext.jsx` to support async role selection workflow
+- ♻️ Updated `Login.jsx` to use proper loading state lifecycle
+- ♻️ Improved error handling across authentication flow
+- ♻️ Added `pendingGoogleAuth` state for better token management
+
 ## [1.0.0] - 2026-01-02
 
 ### Added - Backend

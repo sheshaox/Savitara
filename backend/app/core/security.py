@@ -22,7 +22,7 @@ class SecurityManager:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Verify password against hash"""
+        """Verify password against hash using bcrypt"""
         try:
             # Bcrypt works with bytes
             password_bytes = plain_password.encode('utf-8')[:72]
@@ -120,16 +120,6 @@ class SecurityManager:
             ) from e
     
     @staticmethod
-    def hash_password(password: str) -> str:
-        """Hash password using bcrypt - SonarQube compliant"""
-        return pwd_context.hash(password)
-    
-    @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Verify password against hash"""
-        return pwd_context.verify(plain_password, hashed_password)
-    
-    @staticmethod
     def generate_secure_token(length: int = 32) -> str:
         """
         Generate cryptographically secure random token
@@ -216,3 +206,15 @@ async def get_current_admin(
 ) -> Dict[str, Any]:
     """Ensure current user is Admin"""
     return get_current_user_with_role("admin", current_user)
+
+
+async def get_current_user_pending(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Allow any authenticated user to access onboarding endpoints
+    
+    This is specifically for onboarding endpoints where users may need to
+    select or change their role before their profile is complete.
+    The actual role will be set/updated when they complete onboarding.
+    """
+    return current_user

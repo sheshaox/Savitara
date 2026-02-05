@@ -3,27 +3,21 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging'
 import { 
   getAuth, 
   GoogleAuthProvider, 
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signOut,
   onAuthStateChanged 
 } from 'firebase/auth'
 
-// Validate required Firebase environment variables
-if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-  throw new Error('Missing VITE_FIREBASE_API_KEY environment variable')
-}
-if (!import.meta.env.VITE_FIREBASE_PROJECT_ID) {
-  throw new Error('Missing VITE_FIREBASE_PROJECT_ID environment variable')
-}
-
+// Firebase configuration with provided credentials
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyABhtSIIz-mjMqArISDtnUAsPsv9eYD2c8",
+  authDomain: "savitara-90a1c.firebaseapp.com",
+  projectId: "savitara-90a1c",
+  storageBucket: "savitara-90a1c.firebasestorage.app",
+  messagingSenderId: "397566787449",
+  appId: "1:397566787449:web:eb5fca6f1b7a0272dc79a8"
 }
 
 // Initialize Firebase
@@ -37,7 +31,12 @@ export const googleProvider = new GoogleAuthProvider()
 googleProvider.addScope('email')
 googleProvider.addScope('profile')
 
-// Check for redirect result on page load (for redirect flow)
+// Helper function to detect mobile devices
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+// Check for redirect result on page load (for mobile redirect flow)
 export const checkRedirectResult = async () => {
   try {
     console.log('🔍 Checking for redirect result...')
@@ -59,18 +58,42 @@ export const checkRedirectResult = async () => {
     return null
   } catch (error) {
     console.error('❌ Redirect result error:', error)
-    throw error
+    // Don't throw - just return null if no redirect result
+    return null
   }
 }
 
-// Sign in with Google using redirect (more reliable than popup)
+// Sign in with Google using popup (with redirect fallback for mobile)
 export const signInWithGoogle = async () => {
   try {
-    console.log('🔄 Starting Google Sign-In with redirect...')
-    // Use redirect flow - this will navigate away from the page
-    await signInWithRedirect(auth, googleProvider)
-    // This line won't be reached - page will redirect to Google
-    return null
+    console.log('🔄 Starting Google Sign-In...')
+    
+    // Use popup on desktop, redirect on mobile
+    if (isMobileDevice()) {
+      console.log('📱 Mobile detected - using redirect flow')
+      await signInWithRedirect(auth, googleProvider)
+      // This line won't be reached - page will redirect to Google
+      return null
+    } else {
+      console.log('💻 Desktop detected - using popup flow')
+      const result = await signInWithPopup(auth, googleProvider)
+      console.log('✅ Google Sign-In successful, user:', result.user.email)
+      
+      // Get ID token (force refresh to ensure it's valid)
+      const idToken = await result.user.getIdToken(true)
+      console.log('🔑 ID Token obtained (first 50 chars):', idToken.substring(0, 50) + '...')
+      console.log('🔑 Token length:', idToken.length)
+      
+      return {
+        user: {
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          photoURL: result.user.photoURL,
+        },
+        idToken
+      }
+    }
   } catch (error) {
     console.error('❌ Google sign-in error:', error)
     console.error('Error code:', error.code)
@@ -80,6 +103,12 @@ export const signInWithGoogle = async () => {
     let errorMessage
     
     switch (error.code) {
+      case 'auth/popup-closed-by-user':
+        errorMessage = 'Sign-in cancelled. Please try again.'
+        break
+      case 'auth/popup-blocked':
+        errorMessage = 'Popup blocked by browser. Please allow popups and try again.'
+        break
       case 'auth/operation-not-allowed':
         errorMessage = 'Google Sign-In is not enabled. Please contact support.'
         break
@@ -88,6 +117,9 @@ export const signInWithGoogle = async () => {
         break
       case 'auth/network-request-failed':
         errorMessage = 'Network error. Please check your internet connection.'
+        break
+      case 'auth/cancelled-popup-request':
+        errorMessage = 'Only one popup request is allowed at a time.'
         break
       default:
         errorMessage = error.message || 'Google sign-in failed. Please try again.'
