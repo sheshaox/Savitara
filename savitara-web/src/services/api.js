@@ -47,10 +47,14 @@ api.interceptors.response.use(
           { refresh_token: refreshToken }
         )
 
-        const { access_token, refresh_token: newRefreshToken } = response.data
+        // Backend returns StandardResponse: { success, data: { access_token, refresh_token }, message }
+        const tokenData = response.data.data || response.data
+        const { access_token, refresh_token: newRefreshToken } = tokenData
 
         localStorage.setItem('accessToken', access_token)
-        localStorage.setItem('refreshToken', newRefreshToken)
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken)
+        }
 
         originalRequest.headers.Authorization = `Bearer ${access_token}`
         return api(originalRequest)

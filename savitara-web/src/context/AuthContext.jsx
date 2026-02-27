@@ -83,14 +83,13 @@ export const AuthProvider = ({ children }) => {
       
       setUser(userData)
       
-      // Navigate based on onboarding status - Home after login
-      if (userData.onboarded || userData.onboarding_completed) {
-        navigate('/')
-      } else {
-        navigate('/onboarding')
-      }
-
       toast.success('Login successful!')
+      
+      // Defer navigation to next tick so setUser() state update propagates first
+      const destination = (userData.onboarded || userData.onboarding_completed) ? '/' : '/onboarding'
+      setTimeout(() => {
+        navigate(destination)
+      }, 0)
     } catch (error) {
       console.error('Login failed:', error)
       // Show specific error message from backend
@@ -114,9 +113,13 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('refreshToken', refresh_token)
       
       setUser(userData)
-      // New users always go to onboarding
-      navigate('/onboarding')
+      
       toast.success('Registration successful! Please complete your profile.')
+      
+      // Defer navigation to next tick so setUser() state update propagates first
+      setTimeout(() => {
+        navigate('/onboarding')
+      }, 0)
     } catch (error) {
       console.error('Registration failed:', error)
       console.error('Error details:', {
@@ -221,12 +224,17 @@ export const AuthProvider = ({ children }) => {
       
       toast.success('Welcome to Savitara!')
       
-      // Check if user needs onboarding - Navigate after state update
+      // Check if user needs onboarding
       const isOnboarded = userData.onboarded || userData.onboarding_completed
       const destination = isOnboarded ? '/' : '/onboarding'
       
       console.log('Navigating to:', destination)
-      navigate(destination, { replace: true })
+      
+      // Defer navigation to next tick so setUser() state update propagates first
+      // This prevents the race condition where navigate fires before React processes the state change
+      setTimeout(() => {
+        navigate(destination, { replace: true })
+      }, 0)
       
     } catch (error) {
       console.error('Backend login failed:', error)

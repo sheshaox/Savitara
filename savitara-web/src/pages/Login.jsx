@@ -66,6 +66,9 @@ export default function Login() {
     try {
       await completeGoogleLogin(selectedRole)
       setBackdropMessage('Success! Redirecting to your dashboard...')
+      
+      // Small delay to show success message before navigation unmounts this component
+      await new Promise(resolve => setTimeout(resolve, 500))
       // Keep backdrop open - navigation will unmount this component
     } catch (error) {
       console.error('Failed to complete Google login:', error)
@@ -73,6 +76,7 @@ export default function Login() {
       setGoogleLoading(false)
       setBackdropMessage('')
     }
+    // Don't close loading on success - let navigation unmount component
   }
   
   // Handle role dialog close

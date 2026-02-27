@@ -27,6 +27,7 @@ from app.core.exceptions import AuthenticationError, InvalidInputError
 from app.db.connection import get_db
 from app.models.database import User, UserRole, UserStatus
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId as BsonObjectId
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -519,24 +520,31 @@ async def refresh_token(
     SonarQube: Token rotation prevents replay attacks
     """
     try:
-        # Verify refresh token
-        payload = security_manager.verify_token(
-            refresh_request.refresh_token,
-            token_type="refresh"
-        )
+        # Verify refresh token - decode it first
+        payload = security_manager.verify_token(refresh_request.refresh_token)
+        
+        # Validate that this is actually a refresh token, not an access token
+        token_type = payload.get("type")
+        if token_type != "refresh":
+            raise AuthenticationError(message="Invalid token type. Expected refresh token.")
         
         user_id = payload.get("sub")
         if not user_id:
             raise AuthenticationError(message="Invalid token payload")
         
         # Verify user still exists and is active
-        user_doc = await db.users.find_one({"_id": user_id})
+        # Try ObjectId first, then string match for backwards compatibility
+        try:
+            user_doc = await db.users.find_one({"_id": BsonObjectId(user_id)})
+        except Exception:
+            user_doc = await db.users.find_one({"_id": user_id})
+        
         if not user_doc:
             raise AuthenticationError(message="User not found")
         
         user = User(**user_doc)
-        if user.status in [UserStatus.SUSPENDED, UserStatus.DELETED]:
-            raise AuthenticationError(message="Account not active")
+        if user.status == UserStatus.SUSPENDED:
+            raise AuthenticationError(message="Account suspended")
         
         # Generate new tokens
         access_token = security_manager.create_access_token(
@@ -608,7 +616,12 @@ async def get_current_user_info(
     """
     Get current authenticated user information
     """
-    user_doc = await db.users.find_one({"_id": current_user["id"]})
+    # JWT stores user_id as string, but MongoDB _id is ObjectId
+    user_id = current_user["id"]
+    try:
+        user_doc = await db.users.find_one({"_id": BsonObjectId(user_id)})
+    except Exception:
+        user_doc = await db.users.find_one({"_id": user_id})
     
     if not user_doc:
         raise AuthenticationError(message="User not found")

@@ -302,6 +302,67 @@ npm test
 - SonarQube compliance
 - Secure payment signature verification (HMAC-SHA256)
 
+## 🔑 Authentication Flow
+
+### Supported Login Methods
+
+| Method | Frontend | Backend Endpoint |
+|--------|----------|-----------------|
+| Email/Password | `AuthContext.loginWithEmail()` | `POST /api/v1/auth/login` |
+| Email Registration | `AuthContext.registerWithEmail()` | `POST /api/v1/auth/register` |
+| Google OAuth (Firebase) | `AuthContext.loginWithGoogle()` | `POST /api/v1/auth/google` |
+
+### Auth Files Reference
+
+| File | Purpose |
+|------|---------|
+| `savitara-web/src/context/AuthContext.jsx` | Auth state management, login/register/logout logic |
+| `savitara-web/src/pages/Login.jsx` | Login/Register UI with Google & email forms |
+| `savitara-web/src/services/firebase.js` | Firebase Google Sign-In (popup + redirect) |
+| `savitara-web/src/services/api.js` | Axios interceptors for JWT token attach & refresh |
+| `savitara-web/src/components/RoleSelectionDialog.jsx` | Role picker after Google auth |
+| `backend/app/api/v1/auth.py` | All auth endpoints (login, register, google, refresh, me, logout) |
+| `backend/app/core/security.py` | JWT creation, verification, password hashing |
+| `backend/app/core/config.py` | Environment config (JWT secrets, Firebase, CORS) |
+
+### Google OAuth Flow
+
+```
+User clicks "Continue with Google"
+  → Firebase popup authentication
+  → Firebase returns idToken
+  → Show RoleSelectionDialog (grihasta/acharya)
+  → User selects role
+  → POST /api/v1/auth/google { id_token, role }
+  → Backend verifies token with Google/Firebase public keys
+  → Backend creates/updates user in MongoDB
+  → Returns { access_token, refresh_token, user }
+  → Tokens stored in localStorage
+  → Navigate to /onboarding (new) or / (returning)
+```
+
+### Token Refresh Flow
+
+```
+API request returns 401
+  → Axios interceptor catches it
+  → POST /api/v1/auth/refresh { refresh_token }
+  → Backend validates refresh token, checks user status
+  → Returns new { access_token, refresh_token }
+  → Retry original request with new token
+  → If refresh fails → redirect to /login
+```
+
+### Auth Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Google popup blocked | Browser popup blocker | Allow popups for localhost |
+| "Token audience mismatch" | Wrong `FIREBASE_PROJECT_ID` | Match Firebase Console project ID |
+| "User not found" on /me | ObjectId mismatch | Fixed — backend now converts string IDs to ObjectId |
+| Token refresh fails silently | Missing StandardResponse parsing | Fixed — api.js now reads `response.data.data` |
+| Navigation flicker after login | Race condition | Fixed — navigation deferred to next tick |
+
 ## 📱 Mobile App Features
 
 ### Grihasta Screens (12)
